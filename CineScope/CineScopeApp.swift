@@ -2,19 +2,20 @@
 //  CineScopeApp.swift
 //  CineScope
 //
-//  Created by Karthik Srinivas Gaddam on 08/10/26.
-//
 
 import SwiftUI
 import SwiftData
 
 @main
 struct CineScopeApp: App {
-    var sharedModelContainer: ModelContainer = {
+    let sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            SavedMovieItem.self
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false
+        )
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -23,10 +24,42 @@ struct CineScopeApp: App {
         }
     }()
 
+    init() {
+        configureCinematicAppearance()
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
+                .preferredColorScheme(.dark)
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    private func configureCinematicAppearance() {
+        // Tab bar appearance
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithOpaqueBackground()
+        tabAppearance.backgroundColor = UIColor(CineColors.backgroundPrimary)
+        tabAppearance.shadowColor = UIColor(CineColors.surfaceBorder)
+
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
+
+        // Navigation bar appearance
+        let navAppearance = UINavigationBarAppearance()
+        navAppearance.configureWithOpaqueBackground()
+        navAppearance.backgroundColor = UIColor(CineColors.backgroundPrimary)
+        navAppearance.titleTextAttributes = [
+            .foregroundColor: UIColor(CineColors.textPrimary)
+        ]
+        navAppearance.largeTitleTextAttributes = [
+            .foregroundColor: UIColor(CineColors.textPrimary)
+        ]
+        navAppearance.shadowColor = UIColor(CineColors.surfaceBorder)
+
+        UINavigationBar.appearance().standardAppearance = navAppearance
+        UINavigationBar.appearance().compactAppearance = navAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
     }
 }

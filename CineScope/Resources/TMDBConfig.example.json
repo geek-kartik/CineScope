@@ -1,0 +1,4 @@
+{
+  "apiKey": "YOUR_TMDB_API_KEY_HERE",
+  "accessToken": "YOUR_TMDB_READ_ACCESS_TOKEN_HERE"
+}
