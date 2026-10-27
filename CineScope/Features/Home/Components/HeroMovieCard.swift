@@ -29,10 +29,12 @@ public struct HeroMovieCard: View {
     public var body: some View {
         ZStack(alignment: .bottomLeading) {
             // Backdrop Image
-            CachedAsyncImage(url: movie.backdropURL(size: "w1280"))
-                .frame(maxWidth: .infinity)
-                .frame(height: 440)
-                .clipped()
+            GeometryReader { proxy in
+                CachedAsyncImage(url: movie.backdropURL(size: "w1280"))
+                    .frame(width: proxy.size.width, height: 440)
+                    .clipped()
+            }
+            .frame(height: 440)
 
             // Gradient Overlays
             LinearGradient(

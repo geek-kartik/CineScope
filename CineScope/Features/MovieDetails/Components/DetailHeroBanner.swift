@@ -17,10 +17,12 @@ public struct DetailHeroBanner: View {
     public var body: some View {
         ZStack(alignment: .bottomLeading) {
             // Backdrop
-            CachedAsyncImage(url: detail?.backdropURL(size: "w1280") ?? fallbackMovie?.backdropURL(size: "w1280"))
-                .frame(maxWidth: .infinity)
-                .frame(height: 380)
-                .clipped()
+            GeometryReader { proxy in
+                CachedAsyncImage(url: detail?.backdropURL(size: "w1280") ?? fallbackMovie?.backdropURL(size: "w1280"))
+                    .frame(width: proxy.size.width, height: 380)
+                    .clipped()
+            }
+            .frame(height: 380)
 
             // Gradient fade
             LinearGradient(
