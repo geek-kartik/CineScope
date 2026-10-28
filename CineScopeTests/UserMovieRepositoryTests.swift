@@ -101,4 +101,36 @@ struct UserMovieRepositoryTests {
         #expect(repo.fetchWatched().isEmpty)
         _ = _container
     }
+
+    @Test func testGetItemAndStatus() {
+        let (repo, _container) = createTestRepository()
+
+        #expect(repo.getItem(id: 999) == nil)
+        #expect(repo.status(for: 999).isInWatchlist == false)
+
+        repo.toggleWatchlist(movie: MockData.sampleMovie)
+        repo.toggleFavorite(movie: MockData.sampleMovie)
+        repo.toggleWatched(movie: MockData.sampleMovie)
+
+        let item = repo.getItem(id: MockData.sampleMovie.id)
+        #expect(item != nil)
+        #expect(item?.isWatchlist == true)
+        #expect(item?.isFavorite == true)
+        #expect(item?.isWatched == true)
+
+        let status = repo.status(for: MockData.sampleMovie.id)
+        #expect(status.isInWatchlist == true)
+        #expect(status.isFavorite == true)
+        #expect(status.isWatched == true)
+        _ = _container
+    }
+
+    @Test func testRemoveItem() {
+        let (repo, _container) = createTestRepository()
+
+        repo.toggleWatchlist(movie: MockData.sampleMovie)
+        repo.removeItem(movieId: MockData.sampleMovie.id)
+        #expect(repo.getItem(id: MockData.sampleMovie.id) == nil)
+        _ = _container
+    }
 }

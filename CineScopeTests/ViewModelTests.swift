@@ -139,4 +139,38 @@ struct ViewModelTests {
         #expect(userRepo.fetchWatchlist().isEmpty)
         _ = _container
     }
+
+    @Test func testLibraryViewModelSegmentsAndStats() {
+        let (userRepo, _container) = createTestUserRepo()
+
+        let movie1 = Movie(id: 10, title: "Inception", overview: "", releaseDate: "2010-07-16", voteAverage: 8.8)
+        let movie2 = Movie(id: 11, title: "Interstellar", overview: "", releaseDate: "2014-11-07", voteAverage: 8.6)
+
+        userRepo.toggleWatchlist(movie: movie1)
+        userRepo.toggleWatchlist(movie: movie2)
+        userRepo.toggleWatched(movie: movie1)
+        userRepo.toggleFavorite(movie: movie2)
+        userRepo.updateUserReview(movieId: movie1.id, rating: 4.5, review: "Mind bending")
+
+        let libVM = LibraryViewModel(repository: userRepo)
+        libVM.loadLibrary()
+
+        #expect(libVM.watchedMovies.count == 1)
+        #expect(libVM.favoriteMovies.count == 1)
+        #expect(libVM.reviewedMovies.count == 1)
+        #expect(libVM.stats.totalWatched == 1)
+
+        libVM.selectedSegment = .favorites
+        #expect(libVM.currentItems.count == 1)
+        #expect(libVM.currentItems.first?.id == movie2.id)
+
+        libVM.selectedSegment = .reviews
+        #expect(libVM.currentItems.count == 1)
+        #expect(libVM.currentItems.first?.id == movie1.id)
+
+        libVM.selectedSegment = .watched
+        libVM.removeMovie(libVM.watchedMovies.first!)
+        #expect(libVM.watchedMovies.isEmpty)
+        _ = _container
+    }
 }
