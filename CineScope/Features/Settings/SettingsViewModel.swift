@@ -23,34 +23,38 @@ public final class SettingsViewModel {
     ) {
         self.userMovieRepository = userMovieRepository
         self.apiConfig = apiConfig
-        refreshState()
     }
 
-    public func refreshState() {
+    public func refreshState() async {
         hasCredentials = apiConfig.hasCredentials
-        cacheSize = ImageLoader.shared.currentCacheDiskUsage()
+
+        let imageBytes = await ImageLoader.shared.currentDiskUsageBytes()
+        let responseBytes = await MovieRepository.shared.cacheDiskUsageBytes()
+        cacheSize = Self.formattedSize(bytes: imageBytes + responseBytes)
     }
 
-    public func clearImageCache() {
-        ImageLoader.shared.clearCache()
-        Task {
-            await MovieRepository.shared.clearCache()
-        }
+    public func clearImageCache() async {
+        await ImageLoader.shared.clearCache()
+        await MovieRepository.shared.clearCache()
         cacheSize = "0.0 MB"
         cacheClearedFeedback = true
-        Task {
+        Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            cacheClearedFeedback = false
+            self?.cacheClearedFeedback = false
         }
     }
 
     public func removeCredentials() {
         apiConfig.clearCredential()
-        refreshState()
+        hasCredentials = apiConfig.hasCredentials
     }
 
     public func clearAllUserData() {
         userMovieRepository.clearAllData()
-        refreshState()
+    }
+
+    private static func formattedSize(bytes: Int) -> String {
+        let mb = Double(bytes) / (1024 * 1024)
+        return String(format: "%.1f MB", mb)
     }
 }

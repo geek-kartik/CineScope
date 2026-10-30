@@ -10,9 +10,22 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public var shouldThrowError: APIError? = nil
     public var customResponse: Any? = nil
 
+    private let lock = NSLock()
+    private var _requestCount = 0
+
+    public var requestCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return _requestCount
+    }
+
     public init() {}
 
     public func request<T: Decodable & Sendable>(_ endpoint: APIEndpoint) async throws -> T {
+        lock.lock()
+        _requestCount += 1
+        lock.unlock()
+
         if let err = shouldThrowError {
             throw err
         }

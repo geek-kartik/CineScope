@@ -19,13 +19,20 @@ struct ViewModelTests {
         return (repo, container)
     }
 
+    private func makeMovieRepository(apiClient: APIClientProtocol = MockAPIClient()) -> MovieRepository {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CineScopeTests-\(UUID().uuidString)", isDirectory: true)
+        let cache = MovieCacheStore(directory: directory)
+        return MovieRepository(apiClient: apiClient, cache: cache)
+    }
+
     @Test func testHomeViewModelMissingKey() async {
         let (userRepo, _container) = createTestUserRepo()
         let config = APIConfig.shared
         config.clearCredential()
 
         let homeVM = HomeViewModel(
-            movieRepository: MovieRepository(apiClient: MockAPIClient()),
+            movieRepository: makeMovieRepository(),
             userMovieRepository: userRepo,
             apiConfig: config
         )
@@ -42,7 +49,7 @@ struct ViewModelTests {
         config.setCredential("valid_mock_token_key_1234567890")
 
         let mockClient = MockAPIClient()
-        let movieRepo = MovieRepository(apiClient: mockClient)
+        let movieRepo = makeMovieRepository(apiClient: mockClient)
 
         let homeVM = HomeViewModel(
             movieRepository: movieRepo,
@@ -60,7 +67,7 @@ struct ViewModelTests {
 
     @Test func testSearchViewModelRecentSearches() {
         let mockClient = MockAPIClient()
-        let movieRepo = MovieRepository(apiClient: mockClient)
+        let movieRepo = makeMovieRepository(apiClient: mockClient)
         let searchVM = SearchViewModel(movieRepository: movieRepo)
 
         searchVM.clearAllRecentSearches()
@@ -74,7 +81,7 @@ struct ViewModelTests {
     @Test func testMovieDetailsViewModelSync() async {
         let (userRepo, _container) = createTestUserRepo()
         let mockClient = MockAPIClient()
-        let movieRepo = MovieRepository(apiClient: mockClient)
+        let movieRepo = makeMovieRepository(apiClient: mockClient)
 
         let detailVM = MovieDetailsViewModel(
             movieId: 550,
@@ -126,13 +133,13 @@ struct ViewModelTests {
         _ = _container
     }
 
-    @Test func testSettingsViewModelCacheAndDataReset() {
+    @Test func testSettingsViewModelCacheAndDataReset() async {
         let (userRepo, _container) = createTestUserRepo()
         userRepo.toggleWatchlist(movie: MockData.sampleMovie)
         #expect(!userRepo.fetchWatchlist().isEmpty)
 
         let settingsVM = SettingsViewModel(userMovieRepository: userRepo)
-        settingsVM.clearImageCache()
+        await settingsVM.clearImageCache()
         #expect(settingsVM.cacheSize == "0.0 MB")
 
         settingsVM.clearAllUserData()

@@ -41,7 +41,7 @@ public struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showKeySetup) {
                 APIKeySetupSheet {
-                    viewModel.refreshState()
+                    Task { await viewModel.refreshState() }
                 }
             }
             .alert("Clear All Saved Movie Data?", isPresented: $viewModel.showClearDataAlert) {
@@ -52,8 +52,8 @@ public struct SettingsView: View {
             } message: {
                 Text("This will permanently remove all movies from your Watchlist, Favorites, Watched history, and your personal reviews.")
             }
-            .onAppear {
-                viewModel.refreshState()
+            .task {
+                await viewModel.refreshState()
             }
         }
     }
@@ -162,7 +162,7 @@ public struct SettingsView: View {
                 }
 
                 Button {
-                    viewModel.clearImageCache()
+                    Task { await viewModel.clearImageCache() }
                 } label: {
                     HStack {
                         Spacer()

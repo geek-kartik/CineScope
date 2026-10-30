@@ -31,6 +31,7 @@ public final class SearchViewModel {
 
     private var currentPage: Int = 1
     private var totalPages: Int = 1
+    private var searchTask: Task<Void, Never>?
     private let debouncer = Debouncer(delay: 0.35)
     private let movieRepository: MovieRepositoryProtocol
     private let recentSearchesKey = "cinescope_recent_searches"
@@ -51,9 +52,10 @@ public final class SearchViewModel {
     }
 
     public func handleQueryChange() {
+        cancelActiveSearch()
+
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            debouncer.cancel()
             if let genre = selectedGenre {
                 loadGenreMovies(genreId: genre.id)
             } else {
@@ -66,7 +68,8 @@ public final class SearchViewModel {
         isLoading = true
         errorMessage = nil
         debouncer.debounce { [weak self] in
-            await self?.performSearch(query: trimmed, page: 1)
+            guard let self else { return }
+            await self.scheduleSearch(query: trimmed)
         }
     }
 
@@ -76,36 +79,57 @@ public final class SearchViewModel {
         } else if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             handleQueryChange()
         } else {
+            cancelActiveSearch()
             searchResults = []
+            isLoading = false
         }
+    }
+
+    public func cancelActiveSearch() {
+        debouncer.cancel()
+        searchTask?.cancel()
+        searchTask = nil
+        isLoading = false
+        isLoadingMore = false
     }
 
     public func loadMore() {
         guard !isLoading && !isLoadingMore && currentPage < totalPages else { return }
-        isLoadingMore = true
-        let nextPage = currentPage + 1
 
-        Task {
+        let nextPage = currentPage + 1
+        let genre = selectedGenre
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if genre == nil && trimmed.isEmpty {
+            return
+        }
+
+        isLoadingMore = true
+        searchTask?.cancel()
+        searchTask = Task { [weak self] in
+            guard let self else { return }
+
             do {
-                if let genre = selectedGenre, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    let result = try await movieRepository.getMoviesByGenre(genreId: genre.id, page: nextPage)
-                    self.searchResults.append(contentsOf: result.results)
-                    self.currentPage = result.page
-                    self.totalPages = result.totalPages
+                let result: PageResult<Movie>
+                if let genre, trimmed.isEmpty {
+                    result = try await self.movieRepository.getMoviesByGenre(genreId: genre.id, page: nextPage)
                 } else {
-                    let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else {
-                        isLoadingMore = false
-                        return
-                    }
-                    let result = try await movieRepository.searchMovies(query: trimmed, page: nextPage)
-                    self.searchResults.append(contentsOf: result.results)
-                    self.currentPage = result.page
-                    self.totalPages = result.totalPages
+                    result = try await self.movieRepository.searchMovies(query: trimmed, page: nextPage)
                 }
+
+                guard !Task.isCancelled else { return }
+                self.searchResults.append(contentsOf: result.results)
+                self.currentPage = result.page
+                self.totalPages = result.totalPages
                 self.isLoadingMore = false
+            } catch let apiError as APIError {
+                self.isLoadingMore = false
+                guard !Task.isCancelled, apiError != .cancelled else { return }
+                self.errorMessage = apiError.localizedDescription
             } catch {
                 self.isLoadingMore = false
+                guard !Task.isCancelled else { return }
+                self.errorMessage = error.localizedDescription
             }
         }
     }
@@ -126,35 +150,56 @@ public final class SearchViewModel {
 
     // MARK: - Private
 
+    private func scheduleSearch(query: String) async {
+        searchTask?.cancel()
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.performSearch(query: query, page: 1)
+        }
+        searchTask = task
+        await task.value
+    }
+
     private func performSearch(query: String, page: Int) async {
         do {
             let result = try await movieRepository.searchMovies(query: query, page: page)
+            guard !Task.isCancelled else { return }
             self.searchResults = result.results
             self.currentPage = result.page
             self.totalPages = result.totalPages
             self.isLoading = false
             self.addRecentSearch(query)
         } catch let apiErr as APIError {
+            guard !Task.isCancelled, apiErr != .cancelled else { return }
             self.isLoading = false
-            if case .cancelled = apiErr { return }
             self.errorMessage = apiErr.localizedDescription
         } catch {
+            guard !Task.isCancelled else { return }
             self.isLoading = false
             self.errorMessage = error.localizedDescription
         }
     }
 
     private func loadGenreMovies(genreId: Int) {
+        cancelActiveSearch()
         isLoading = true
         errorMessage = nil
-        Task {
+        searchTask = Task { [weak self] in
+            guard let self else { return }
+
             do {
-                let result = try await movieRepository.getMoviesByGenre(genreId: genreId, page: 1)
+                let result = try await self.movieRepository.getMoviesByGenre(genreId: genreId, page: 1)
+                guard !Task.isCancelled else { return }
                 self.searchResults = result.results
                 self.currentPage = result.page
                 self.totalPages = result.totalPages
                 self.isLoading = false
+            } catch let apiErr as APIError {
+                guard !Task.isCancelled, apiErr != .cancelled else { return }
+                self.isLoading = false
+                self.errorMessage = apiErr.localizedDescription
             } catch {
+                guard !Task.isCancelled else { return }
                 self.isLoading = false
                 self.errorMessage = error.localizedDescription
             }

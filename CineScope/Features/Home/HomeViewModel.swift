@@ -63,6 +63,12 @@ public final class HomeViewModel {
                 trendingTask, nowPlayingTask, topRatedTask, popularTask, upcomingTask
             )
 
+            guard !Task.isCancelled else {
+                self.isLoading = false
+                self.isRefreshing = false
+                return
+            }
+
             self.trendingMovies = trending.results
             self.heroMovie = trending.results.first ?? popular.results.first
             self.nowPlayingMovies = nowPlaying.results
@@ -74,6 +80,7 @@ public final class HomeViewModel {
         } catch let apiErr as APIError {
             self.isLoading = false
             self.isRefreshing = false
+            guard !Task.isCancelled, apiErr != .cancelled else { return }
             if apiErr.isAuthError {
                 self.isMissingCredentials = true
             }
@@ -81,6 +88,7 @@ public final class HomeViewModel {
         } catch {
             self.isLoading = false
             self.isRefreshing = false
+            guard !Task.isCancelled else { return }
             self.errorMessage = error.localizedDescription
         }
     }

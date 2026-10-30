@@ -62,6 +62,13 @@ Repositories
 - **Networking** is defined by `APIClientProtocol` and `APIEndpoint`.
   `URLSessionAPIClient` performs requests and decodes responses; `APIError`
   represents request failures.
+- **Caching** is handled by `MovieCacheStore`, an actor that keeps responses in
+  memory and mirrors them to disk with per-entry TTLs. Fresh entries skip the
+  network; when a request fails, stale entries are served so features keep
+  working offline. Cancellation is never masked by cached data.
+- **Image loading** is handled by the `ImageLoader` actor. Concurrent requests
+  for the same URL share a single task, decoded images are downsampled, and the
+  in-memory cache is cleared when the system reports memory pressure.
 - **Models** represent TMDB responses and user movie status. `SavedMovieItem`
   is the SwiftData model for locally saved movie information and user activity.
 - **Core** holds app-wide configuration, networking, persistence, image
@@ -100,6 +107,11 @@ view model, put reusable remote or local data operations behind the existing
 repository protocols, and keep shared infrastructure in `Core`. Extend the
 existing model, endpoint, and test patterns rather than reaching directly
 from a view into networking or persistence.
+
+Search uses debounced, cancellable tasks so superseded queries and pagination
+requests cannot overwrite newer results. `MovieRepository` applies shorter TTLs
+to feeds and search results than to movie details, reflecting how frequently
+each response changes.
 
 ## Build and test
 

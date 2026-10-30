@@ -57,6 +57,9 @@ public struct SearchView: View {
             .task {
                 await viewModel.loadSuggestions()
             }
+            .onDisappear {
+                viewModel.cancelActiveSearch()
+            }
         }
     }
 
