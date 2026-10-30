@@ -6,15 +6,18 @@
 import SwiftUI
 
 public struct SearchView: View {
+    @Environment(AppRouter.self) private var router
+
     @State private var viewModel: SearchViewModel
-    @State private var selectedMovie: Movie? = nil
 
     public init(movieRepository: MovieRepositoryProtocol = MovieRepository.shared) {
         _viewModel = State(initialValue: SearchViewModel(movieRepository: movieRepository))
     }
 
     public var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+
+        NavigationStack(path: $router.searchPath) {
             ZStack {
                 CineColors.backgroundPrimary.ignoresSafeArea()
 
@@ -51,11 +54,16 @@ public struct SearchView: View {
             }
             .navigationTitle("Search")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $selectedMovie) { movie in
-                MovieDetailsView(movieId: movie.id, initialMovie: movie)
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteView(route: route)
             }
             .task {
                 await viewModel.loadSuggestions()
+            }
+            .onChange(of: router.pendingSearchQuery, initial: true) { _, pendingQuery in
+                guard let pendingQuery, !pendingQuery.isEmpty else { return }
+                viewModel.query = pendingQuery
+                router.pendingSearchQuery = nil
             }
             .onDisappear {
                 viewModel.cancelActiveSearch()
@@ -150,7 +158,7 @@ public struct SearchView: View {
                     LazyVStack(spacing: CineSpacing.m) {
                         ForEach(viewModel.trendingSuggestions) { movie in
                             Button {
-                                selectedMovie = movie
+                                router.push(.movie(id: movie.id, movie: movie))
                             } label: {
                                 SearchResultRow(movie: movie)
                             }
@@ -166,15 +174,14 @@ public struct SearchView: View {
         LazyVStack(spacing: CineSpacing.m) {
             ForEach(viewModel.searchResults) { movie in
                 Button {
-                    selectedMovie = movie
+                    router.push(.movie(id: movie.id, movie: movie))
                 } label: {
                     SearchResultRow(movie: movie)
                 }
                 .buttonStyle(.plain)
                 .onAppear {
-                    if movie.id == viewModel.searchResults.last?.id {
-                        viewModel.loadMore()
-                    }
+                    guard viewModel.shouldLoadMore(after: movie) else { return }
+                    viewModel.loadMore()
                 }
             }
 

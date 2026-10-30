@@ -93,6 +93,14 @@ public final class SearchViewModel {
         isLoadingMore = false
     }
 
+    public func shouldLoadMore(after movie: Movie) -> Bool {
+        guard !isLoading, !isLoadingMore, currentPage < totalPages else { return false }
+        guard let index = searchResults.firstIndex(where: { $0.id == movie.id }) else {
+            return false
+        }
+        return index >= max(0, searchResults.count - 4)
+    }
+
     public func loadMore() {
         guard !isLoading && !isLoadingMore && currentPage < totalPages else { return }
 
@@ -118,7 +126,9 @@ public final class SearchViewModel {
                 }
 
                 guard !Task.isCancelled else { return }
-                self.searchResults.append(contentsOf: result.results)
+                let existingIDs = Set(self.searchResults.map(\.id))
+                let newResults = result.results.filter { !existingIDs.contains($0.id) }
+                self.searchResults.append(contentsOf: newResults)
                 self.currentPage = result.page
                 self.totalPages = result.totalPages
                 self.isLoadingMore = false

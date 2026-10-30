@@ -6,9 +6,9 @@
 import SwiftUI
 
 public struct HomeView: View {
+    @Environment(AppRouter.self) private var router
+
     @State private var viewModel: HomeViewModel
-    @State private var selectedMovie: Movie? = nil
-    @State private var selectedCollection: CollectionType? = nil
     @State private var showKeySetup: Bool = false
 
     private let networkMonitor = NetworkMonitor.shared
@@ -24,7 +24,9 @@ public struct HomeView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+
+        NavigationStack(path: $router.discoverPath) {
             ZStack {
                 CineColors.backgroundPrimary.ignoresSafeArea()
 
@@ -51,7 +53,7 @@ public struct HomeView: View {
                                     movie: hero,
                                     isInWatchlist: viewModel.isInWatchlist(movie: hero),
                                     onDetailsTapped: {
-                                        selectedMovie = hero
+                                        router.push(.movie(id: hero.id, movie: hero))
                                     },
                                     onWatchlistTapped: {
                                         viewModel.toggleWatchlist(for: hero)
@@ -71,8 +73,13 @@ public struct HomeView: View {
                                     subtitle: "Most watched movies today",
                                     movies: viewModel.trendingMovies,
                                     showRank: false,
-                                    onMovieSelected: { selectedMovie = $0 },
-                                    onSeeAll: { selectedCollection = .trending }
+                                    isLoadingMore: viewModel.isLoadingMore(section: .trending),
+                                    onMovieSelected: { router.push(.movie(id: $0.id, movie: $0)) },
+                                    onPrefetch: { movie in
+                                        guard viewModel.shouldLoadMore(section: .trending, movie: movie) else { return }
+                                        Task { await viewModel.loadMore(section: .trending) }
+                                    },
+                                    onSeeAll: { router.push(.collection(.trending)) }
                                 )
                             }
 
@@ -83,8 +90,13 @@ public struct HomeView: View {
                                     subtitle: "Currently in theaters",
                                     movies: viewModel.nowPlayingMovies,
                                     showRank: false,
-                                    onMovieSelected: { selectedMovie = $0 },
-                                    onSeeAll: { selectedCollection = .nowPlaying }
+                                    isLoadingMore: viewModel.isLoadingMore(section: .nowPlaying),
+                                    onMovieSelected: { router.push(.movie(id: $0.id, movie: $0)) },
+                                    onPrefetch: { movie in
+                                        guard viewModel.shouldLoadMore(section: .nowPlaying, movie: movie) else { return }
+                                        Task { await viewModel.loadMore(section: .nowPlaying) }
+                                    },
+                                    onSeeAll: { router.push(.collection(.nowPlaying)) }
                                 )
                             }
 
@@ -95,8 +107,13 @@ public struct HomeView: View {
                                     subtitle: "Highest rated by audiences",
                                     movies: viewModel.topRatedMovies,
                                     showRank: true,
-                                    onMovieSelected: { selectedMovie = $0 },
-                                    onSeeAll: { selectedCollection = .topRated }
+                                    isLoadingMore: viewModel.isLoadingMore(section: .topRated),
+                                    onMovieSelected: { router.push(.movie(id: $0.id, movie: $0)) },
+                                    onPrefetch: { movie in
+                                        guard viewModel.shouldLoadMore(section: .topRated, movie: movie) else { return }
+                                        Task { await viewModel.loadMore(section: .topRated) }
+                                    },
+                                    onSeeAll: { router.push(.collection(.topRated)) }
                                 )
                             }
 
@@ -107,8 +124,13 @@ public struct HomeView: View {
                                     subtitle: "Global favorites right now",
                                     movies: viewModel.popularMovies,
                                     showRank: false,
-                                    onMovieSelected: { selectedMovie = $0 },
-                                    onSeeAll: { selectedCollection = .popular }
+                                    isLoadingMore: viewModel.isLoadingMore(section: .popular),
+                                    onMovieSelected: { router.push(.movie(id: $0.id, movie: $0)) },
+                                    onPrefetch: { movie in
+                                        guard viewModel.shouldLoadMore(section: .popular, movie: movie) else { return }
+                                        Task { await viewModel.loadMore(section: .popular) }
+                                    },
+                                    onSeeAll: { router.push(.collection(.popular)) }
                                 )
                             }
 
@@ -119,8 +141,13 @@ public struct HomeView: View {
                                     subtitle: "Coming soon to theaters",
                                     movies: viewModel.upcomingMovies,
                                     showRank: false,
-                                    onMovieSelected: { selectedMovie = $0 },
-                                    onSeeAll: { selectedCollection = .upcoming }
+                                    isLoadingMore: viewModel.isLoadingMore(section: .upcoming),
+                                    onMovieSelected: { router.push(.movie(id: $0.id, movie: $0)) },
+                                    onPrefetch: { movie in
+                                        guard viewModel.shouldLoadMore(section: .upcoming, movie: movie) else { return }
+                                        Task { await viewModel.loadMore(section: .upcoming) }
+                                    },
+                                    onSeeAll: { router.push(.collection(.upcoming)) }
                                 )
                             }
 
@@ -156,13 +183,8 @@ public struct HomeView: View {
                     }
                 }
             }
-            .navigationDestination(item: $selectedMovie) { movie in
-                MovieDetailsView(movieId: movie.id, initialMovie: movie)
-            }
-            .navigationDestination(item: $selectedCollection) { col in
-                MovieCollectionGridView(collectionType: col) { movie in
-                    selectedMovie = movie
-                }
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteView(route: route)
             }
             .sheet(isPresented: $showKeySetup) {
                 APIKeySetupSheet {

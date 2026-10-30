@@ -6,6 +6,16 @@
 import Foundation
 import Observation
 
+public enum HomeSection: String, CaseIterable, Identifiable, Sendable {
+    case trending
+    case nowPlaying
+    case topRated
+    case popular
+    case upcoming
+
+    public var id: String { rawValue }
+}
+
 @Observable
 @MainActor
 public final class HomeViewModel {
@@ -24,9 +34,14 @@ public final class HomeViewModel {
     public var activeTrailerURL: URL? = nil
     public var showTrailerSheet: Bool = false
 
+    public private(set) var loadingMoreSections: Set<HomeSection> = []
+
     private let movieRepository: MovieRepositoryProtocol
     private let userMovieRepository: UserMovieRepositoryProtocol
     private let apiConfig: APIConfig
+    private let prefetchThreshold: Int = 3
+    private var currentPages: [HomeSection: Int] = [:]
+    private var totalPagesBySection: [HomeSection: Int] = [:]
 
     public init(
         movieRepository: MovieRepositoryProtocol = MovieRepository.shared,
@@ -75,6 +90,20 @@ public final class HomeViewModel {
             self.topRatedMovies = topRated.results
             self.popularMovies = popular.results
             self.upcomingMovies = upcoming.results
+            self.currentPages = [
+                .trending: trending.page,
+                .nowPlaying: nowPlaying.page,
+                .topRated: topRated.page,
+                .popular: popular.page,
+                .upcoming: upcoming.page
+            ]
+            self.totalPagesBySection = [
+                .trending: trending.totalPages,
+                .nowPlaying: nowPlaying.totalPages,
+                .topRated: topRated.totalPages,
+                .popular: popular.totalPages,
+                .upcoming: upcoming.totalPages
+            ]
             self.isLoading = false
             self.isRefreshing = false
         } catch let apiErr as APIError {
@@ -98,6 +127,46 @@ public final class HomeViewModel {
         await loadFeed()
     }
 
+    public func isLoadingMore(section: HomeSection) -> Bool {
+        loadingMoreSections.contains(section)
+    }
+
+    public func shouldLoadMore(section: HomeSection, movie: Movie) -> Bool {
+        let sectionMovies = movies(for: section)
+        guard let index = sectionMovies.firstIndex(where: { $0.id == movie.id }) else {
+            return false
+        }
+        guard (currentPages[section] ?? 1) < (totalPagesBySection[section] ?? 1) else {
+            return false
+        }
+        return index >= max(0, sectionMovies.count - prefetchThreshold)
+    }
+
+    public func loadMore(section: HomeSection) async {
+        guard !loadingMoreSections.contains(section) else { return }
+
+        let nextPage = (currentPages[section] ?? 1) + 1
+        guard nextPage <= (totalPagesBySection[section] ?? 1) else { return }
+
+        loadingMoreSections.insert(section)
+        defer { loadingMoreSections.remove(section) }
+
+        do {
+            let result = try await fetchPage(section: section, page: nextPage)
+            guard !Task.isCancelled else { return }
+
+            let existingIDs = Set(movies(for: section).map(\.id))
+            let newMovies = result.results.filter { !existingIDs.contains($0.id) }
+            append(newMovies, to: section)
+            currentPages[section] = result.page
+            totalPagesBySection[section] = result.totalPages
+        } catch let apiError as APIError {
+            guard !Task.isCancelled, apiError != .cancelled else { return }
+        } catch {
+            guard !Task.isCancelled else { return }
+        }
+    }
+
     public func isInWatchlist(movie: Movie) -> Bool {
         userMovieRepository.status(for: movie.id).isInWatchlist
     }
@@ -116,6 +185,41 @@ public final class HomeViewModel {
             }
         } catch {
             // Trailer fallback handled gracefully
+        }
+    }
+
+    private func movies(for section: HomeSection) -> [Movie] {
+        switch section {
+        case .trending: return trendingMovies
+        case .nowPlaying: return nowPlayingMovies
+        case .topRated: return topRatedMovies
+        case .popular: return popularMovies
+        case .upcoming: return upcomingMovies
+        }
+    }
+
+    private func append(_ movies: [Movie], to section: HomeSection) {
+        switch section {
+        case .trending: trendingMovies.append(contentsOf: movies)
+        case .nowPlaying: nowPlayingMovies.append(contentsOf: movies)
+        case .topRated: topRatedMovies.append(contentsOf: movies)
+        case .popular: popularMovies.append(contentsOf: movies)
+        case .upcoming: upcomingMovies.append(contentsOf: movies)
+        }
+    }
+
+    private func fetchPage(section: HomeSection, page: Int) async throws -> PageResult<Movie> {
+        switch section {
+        case .trending:
+            return try await movieRepository.getTrending(timeWindow: "day", page: page)
+        case .nowPlaying:
+            return try await movieRepository.getNowPlaying(page: page)
+        case .topRated:
+            return try await movieRepository.getTopRated(page: page)
+        case .popular:
+            return try await movieRepository.getPopular(page: page)
+        case .upcoming:
+            return try await movieRepository.getUpcoming(page: page)
         }
     }
 }

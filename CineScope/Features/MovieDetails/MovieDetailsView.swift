@@ -12,13 +12,15 @@ public struct MovieDetailsView: View {
 
     @State private var viewModel: MovieDetailsViewModel
     @State private var isOverviewExpanded: Bool = false
-    @State private var nextSelectedMovie: Movie? = nil
+
+    private let onMovieSelected: (Movie) -> Void
 
     public init(
         movieId: Int,
         initialMovie: Movie? = nil,
         movieRepository: MovieRepositoryProtocol = MovieRepository.shared,
-        userMovieRepository: UserMovieRepositoryProtocol? = nil
+        userMovieRepository: UserMovieRepositoryProtocol? = nil,
+        onMovieSelected: @escaping (Movie) -> Void = { _ in }
     ) {
         let repo = userMovieRepository ?? UserMovieRepository(context: PersistenceController.shared.container.mainContext)
         _viewModel = State(initialValue: MovieDetailsViewModel(
@@ -27,6 +29,7 @@ public struct MovieDetailsView: View {
             movieRepository: movieRepository,
             userMovieRepository: repo
         ))
+        self.onMovieSelected = onMovieSelected
     }
 
     public var body: some View {
@@ -93,9 +96,6 @@ public struct MovieDetailsView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $nextSelectedMovie) { movie in
-            MovieDetailsView(movieId: movie.id, initialMovie: movie)
-        }
         .sheet(isPresented: $viewModel.showTrailerSheet) {
             if let trailerURL = viewModel.movieDetail?.trailerURL {
                 SafariTrailerView(url: trailerURL)
@@ -159,7 +159,7 @@ public struct MovieDetailsView: View {
                     LazyHStack(spacing: CineSpacing.m) {
                         ForEach(recommendations.prefix(10)) { movie in
                             Button {
-                                nextSelectedMovie = movie
+                                onMovieSelected(movie)
                             } label: {
                                 MovieCardView(movie: movie)
                             }

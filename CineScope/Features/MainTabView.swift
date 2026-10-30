@@ -11,7 +11,7 @@ public struct MainTabView: View {
     @Query(filter: #Predicate<SavedMovieItem> { $0.isWatchlist })
     private var watchlistItems: [SavedMovieItem]
 
-    @State private var selectedTab: Int = 0
+    @State private var router = AppRouter()
 
     private var userMovieRepository: UserMovieRepositoryProtocol {
         UserMovieRepository(context: modelContext)
@@ -20,48 +20,54 @@ public struct MainTabView: View {
     public init() {}
 
     public var body: some View {
-        TabView(selection: $selectedTab) {
+        @Bindable var router = router
+
+        TabView(selection: $router.selectedTab) {
             HomeView(userMovieRepository: userMovieRepository)
                 .tabItem {
                     Label("Discover", systemImage: "house.fill")
                 }
-                .tag(0)
+                .tag(AppTab.discover)
 
             SearchView()
                 .tabItem {
                     Label("Search", systemImage: "magnifyingglass")
                 }
-                .tag(1)
+                .tag(AppTab.search)
 
             WatchlistView(
                 userMovieRepository: userMovieRepository,
                 onExploreTapped: {
-                    selectedTab = 0
+                    router.selectedTab = .discover
                 }
             )
             .tabItem {
                 Label("Watchlist", systemImage: "bookmark.fill")
             }
             .badge(watchlistItems.count > 0 ? watchlistItems.count : 0)
-            .tag(2)
+            .tag(AppTab.watchlist)
 
             LibraryView(
                 userMovieRepository: userMovieRepository,
                 onExploreTapped: {
-                    selectedTab = 0
+                    router.selectedTab = .discover
                 }
             )
             .tabItem {
                 Label("Library", systemImage: "film.stack.fill")
             }
-            .tag(3)
+            .tag(AppTab.library)
 
             SettingsView(userMovieRepository: userMovieRepository)
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(4)
+                .tag(AppTab.settings)
         }
         .tint(CineColors.crimson)
+        .environment(router)
+        .onOpenURL { url in
+            router.handle(url)
+        }
     }
 }

@@ -6,8 +6,9 @@
 import SwiftUI
 
 public struct WatchlistView: View {
+    @Environment(AppRouter.self) private var router
+
     @State private var viewModel: WatchlistViewModel
-    @State private var selectedMovie: Movie? = nil
     public var onExploreTapped: (() -> Void)? = nil
 
     private let columns = [
@@ -24,7 +25,9 @@ public struct WatchlistView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+
+        NavigationStack(path: $router.watchlistPath) {
             ZStack {
                 CineColors.backgroundPrimary.ignoresSafeArea()
 
@@ -47,8 +50,8 @@ public struct WatchlistView: View {
             }
             .navigationTitle("Watchlist")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $selectedMovie) { movie in
-                MovieDetailsView(movieId: movie.id, initialMovie: movie)
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteView(route: route)
             }
             .onAppear {
                 viewModel.loadWatchlist()
@@ -102,7 +105,7 @@ public struct WatchlistView: View {
         LazyVGrid(columns: columns, spacing: CineSpacing.l) {
             ForEach(viewModel.filteredAndSortedItems, id: \.id) { item in
                 Button {
-                    selectedMovie = item.toMovie()
+                    router.push(.movie(id: item.id, movie: item.toMovie()))
                 } label: {
                     VStack(alignment: .leading, spacing: CineSpacing.xs) {
                         MovieCardView(
@@ -143,7 +146,7 @@ public struct WatchlistView: View {
         LazyVStack(spacing: CineSpacing.m) {
             ForEach(viewModel.filteredAndSortedItems, id: \.id) { item in
                 Button {
-                    selectedMovie = item.toMovie()
+                    router.push(.movie(id: item.id, movie: item.toMovie()))
                 } label: {
                     WatchlistMovieRow(
                         item: item,
