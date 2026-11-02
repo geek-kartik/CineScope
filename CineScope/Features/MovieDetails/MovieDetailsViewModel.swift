@@ -82,7 +82,12 @@ public final class MovieDetailsViewModel {
     }
 
     public func savePersonalReview(rating: Double?, review: String) {
-        userMovieRepository.updateUserReview(movieId: movieId, rating: rating, review: review)
+        userMovieRepository.updateUserReview(
+            movie: asMovie(),
+            detail: movieDetail,
+            rating: rating,
+            review: review
+        )
         syncUserStatus()
     }
 

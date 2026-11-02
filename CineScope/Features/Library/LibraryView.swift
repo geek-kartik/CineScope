@@ -6,8 +6,9 @@
 import SwiftUI
 
 public struct LibraryView: View {
+    @Environment(AppRouter.self) private var router
+
     @State private var viewModel: LibraryViewModel
-    @State private var selectedMovie: Movie? = nil
     public var onExploreTapped: (() -> Void)? = nil
 
     public init(
@@ -19,7 +20,9 @@ public struct LibraryView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        @Bindable var router = router
+
+        NavigationStack(path: $router.libraryPath) {
             ZStack {
                 CineColors.backgroundPrimary.ignoresSafeArea()
 
@@ -45,7 +48,7 @@ public struct LibraryView: View {
                             LazyVStack(spacing: CineSpacing.m) {
                                 ForEach(viewModel.currentItems, id: \.id) { item in
                                     Button {
-                                        selectedMovie = item.toMovie()
+                                        router.push(.movie(id: item.id, movie: item.toMovie()))
                                     } label: {
                                         LibraryMovieCard(item: item)
                                     }
@@ -68,8 +71,8 @@ public struct LibraryView: View {
             }
             .navigationTitle("My Library")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $selectedMovie) { movie in
-                MovieDetailsView(movieId: movie.id, initialMovie: movie)
+            .navigationDestination(for: AppRoute.self) { route in
+                AppRouteView(route: route)
             }
             .onAppear {
                 viewModel.loadLibrary()

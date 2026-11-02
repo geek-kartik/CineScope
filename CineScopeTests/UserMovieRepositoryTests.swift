@@ -87,6 +87,26 @@ struct UserMovieRepositoryTests {
         _ = _container
     }
 
+    @Test func testReviewOnlyCreatesAndRemovesItem() {
+        let (repo, _container) = createTestRepository()
+        let movie = MockData.sampleMovie
+
+        repo.updateUserReview(movie: movie, detail: nil, rating: 4.0, review: "Great direction.")
+
+        let status = repo.status(for: movie.id)
+        #expect(status.userRating == 4.0)
+        #expect(status.userReview == "Great direction.")
+        #expect(status.isInWatchlist == false)
+        #expect(status.isFavorite == false)
+        #expect(status.isWatched == false)
+        #expect(repo.getItem(id: movie.id) != nil)
+
+        repo.updateUserReview(movie: movie, detail: nil, rating: nil, review: nil)
+
+        #expect(repo.getItem(id: movie.id) == nil)
+        _ = _container
+    }
+
     @Test func testClearAllData() {
         let (repo, _container) = createTestRepository()
         repo.toggleWatchlist(movie: MockData.sampleMovie)

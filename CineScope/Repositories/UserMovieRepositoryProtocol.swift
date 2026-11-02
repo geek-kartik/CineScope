@@ -45,6 +45,7 @@ public protocol UserMovieRepositoryProtocol: AnyObject {
     @discardableResult func toggleFavorite(movie: Movie, detail: MovieDetail?) -> Bool
     @discardableResult func toggleWatched(movie: Movie, detail: MovieDetail?) -> Bool
     func updateUserReview(movieId: Int, rating: Double?, review: String?)
+    func updateUserReview(movie: Movie, detail: MovieDetail?, rating: Double?, review: String?)
     func removeItem(movieId: Int)
     func clearAllData()
     func libraryStatistics() -> LibraryStats
