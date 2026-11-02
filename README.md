@@ -74,8 +74,13 @@ Repositories
 - **Core** holds app-wide configuration, networking, persistence, image
   loading, utilities, and reusable design-system elements.
 - **Features** group screens and their view models/components by user-facing
-  area. `MainTabView` composes Discover, Search, Watchlist, Library, and
-  Settings.
+  area. `MainTabView` composes the Discover (`HomeView`), Search, Watchlist,
+  Library, and Settings tabs. `MovieDetails` provides the movie detail screen,
+  and `Features/Navigation/` resolves shared routes.
+- **Navigation** is owned by `AppRouter`, which tracks the selected tab and a
+  separate navigation path per tab. `AppRouteView` maps routes to screens, and
+  `AppRouter.handle(_:)` handles `cinescope://` and `https://cinescope.app`
+  deep links for movies, collections, search, and the main tabs.
 
 ### Source layout
 
@@ -83,10 +88,12 @@ Repositories
 | --- | --- |
 | `CineScope/Core/Configuration/` | TMDB credential configuration |
 | `CineScope/Core/Networking/` | Endpoints, API client, errors, connectivity |
-| `CineScope/Core/Persistence/` | SwiftData model and persistence setup |
+| `CineScope/Core/Persistence/` | SwiftData model, persistence setup, and response cache |
 | `CineScope/Core/DesignSystem/` | Shared colors, metrics, and UI components |
 | `CineScope/Core/ImageLoading/` | Cached remote image loading |
-| `CineScope/Features/` | Tab screens, view models, and feature components |
+| `CineScope/Core/Navigation/` | Tab selection, route stacks, and deep links |
+| `CineScope/Core/Utilities/` | Shared helpers such as debouncing |
+| `CineScope/Features/` | Tab screens, movie details, view models, and feature components |
 | `CineScope/Models/` | Movie and API response types |
 | `CineScope/Repositories/` | Remote and local data access |
 | `CineScope/Resources/` | Bundled resources and TMDB config template |
