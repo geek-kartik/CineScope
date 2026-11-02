@@ -41,6 +41,11 @@ public final class MovieCollectionViewModel {
         await loadPage(1, replacing: true)
     }
 
+    public func refresh() async {
+        guard !isLoading, !isLoadingMore else { return }
+        await loadPage(1, replacing: true)
+    }
+
     public func loadMoreIfNeeded(at index: Int) async {
         guard shouldPrefetch(at: index) else { return }
         await loadMore()

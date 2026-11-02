@@ -11,12 +11,14 @@ import Observation
 public final class SearchViewModel {
     public var query: String = "" {
         didSet {
+            guard !isAdjustingInputs else { return }
             handleQueryChange()
         }
     }
 
     public var selectedGenre: Genre? = nil {
         didSet {
+            guard !isAdjustingInputs else { return }
             handleGenreChange()
         }
     }
@@ -35,6 +37,9 @@ public final class SearchViewModel {
     private let debouncer = Debouncer(delay: 0.35)
     private let movieRepository: MovieRepositoryProtocol
     private let recentSearchesKey = "cinescope_recent_searches"
+    private var isAdjustingInputs = false
+    private var activeQuery: String = ""
+    private var activeGenreId: Int?
 
     public init(movieRepository: MovieRepositoryProtocol = MovieRepository.shared) {
         self.movieRepository = movieRepository
@@ -61,8 +66,25 @@ public final class SearchViewModel {
             } else {
                 searchResults = []
                 isLoading = false
+                errorMessage = nil
+                currentPage = 1
+                totalPages = 1
             }
             return
+        }
+
+        if selectedGenre != nil {
+            isAdjustingInputs = true
+            selectedGenre = nil
+            isAdjustingInputs = false
+        }
+
+        if activeQuery.caseInsensitiveCompare(trimmed) != .orderedSame {
+            activeQuery = trimmed
+            activeGenreId = nil
+            searchResults = []
+            currentPage = 1
+            totalPages = 1
         }
 
         isLoading = true
@@ -75,6 +97,11 @@ public final class SearchViewModel {
 
     public func handleGenreChange() {
         if let genre = selectedGenre {
+            if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                isAdjustingInputs = true
+                query = ""
+                isAdjustingInputs = false
+            }
             loadGenreMovies(genreId: genre.id)
         } else if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             handleQueryChange()
@@ -82,6 +109,11 @@ public final class SearchViewModel {
             cancelActiveSearch()
             searchResults = []
             isLoading = false
+            errorMessage = nil
+            currentPage = 1
+            totalPages = 1
+            activeQuery = ""
+            activeGenreId = nil
         }
     }
 
@@ -108,9 +140,7 @@ public final class SearchViewModel {
         let genre = selectedGenre
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if genre == nil && trimmed.isEmpty {
-            return
-        }
+        guard genre != nil || !trimmed.isEmpty else { return }
 
         isLoadingMore = true
         searchTask?.cancel()
@@ -126,6 +156,8 @@ public final class SearchViewModel {
                 }
 
                 guard !Task.isCancelled else { return }
+                guard self.matchesCurrentContext(query: trimmed, genre: genre) else { return }
+
                 let existingIDs = Set(self.searchResults.map(\.id))
                 let newResults = result.results.filter { !existingIDs.contains($0.id) }
                 self.searchResults.append(contentsOf: newResults)
@@ -145,7 +177,11 @@ public final class SearchViewModel {
     }
 
     public func selectRecentSearch(_ term: String) {
-        query = term
+        if query == term {
+            handleQueryChange()
+        } else {
+            query = term
+        }
     }
 
     public func removeRecentSearch(_ term: String) {
@@ -174,6 +210,8 @@ public final class SearchViewModel {
         do {
             let result = try await movieRepository.searchMovies(query: query, page: page)
             guard !Task.isCancelled else { return }
+            guard matchesCurrentContext(query: query, genre: nil) else { return }
+
             self.searchResults = result.results
             self.currentPage = result.page
             self.totalPages = result.totalPages
@@ -181,17 +219,30 @@ public final class SearchViewModel {
             self.addRecentSearch(query)
         } catch let apiErr as APIError {
             guard !Task.isCancelled, apiErr != .cancelled else { return }
+            guard matchesCurrentContext(query: query, genre: nil) else { return }
             self.isLoading = false
             self.errorMessage = apiErr.localizedDescription
         } catch {
             guard !Task.isCancelled else { return }
+            guard matchesCurrentContext(query: query, genre: nil) else { return }
             self.isLoading = false
             self.errorMessage = error.localizedDescription
         }
     }
 
     private func loadGenreMovies(genreId: Int) {
+        let isSameContext = activeGenreId == genreId && activeQuery.isEmpty
+
         cancelActiveSearch()
+        activeQuery = ""
+        activeGenreId = genreId
+
+        if !isSameContext {
+            searchResults = []
+            currentPage = 1
+            totalPages = 1
+        }
+
         isLoading = true
         errorMessage = nil
         searchTask = Task { [weak self] in
@@ -200,20 +251,32 @@ public final class SearchViewModel {
             do {
                 let result = try await self.movieRepository.getMoviesByGenre(genreId: genreId, page: 1)
                 guard !Task.isCancelled else { return }
+                guard self.matchesCurrentContext(query: "", genre: self.selectedGenre) else { return }
+                guard self.activeGenreId == genreId else { return }
+
                 self.searchResults = result.results
                 self.currentPage = result.page
                 self.totalPages = result.totalPages
                 self.isLoading = false
             } catch let apiErr as APIError {
                 guard !Task.isCancelled, apiErr != .cancelled else { return }
+                guard self.activeGenreId == genreId else { return }
                 self.isLoading = false
                 self.errorMessage = apiErr.localizedDescription
             } catch {
                 guard !Task.isCancelled else { return }
+                guard self.activeGenreId == genreId else { return }
                 self.isLoading = false
                 self.errorMessage = error.localizedDescription
             }
         }
+    }
+
+    private func matchesCurrentContext(query: String, genre: Genre?) -> Bool {
+        if let genre {
+            return activeGenreId == genre.id && activeQuery.isEmpty
+        }
+        return activeGenreId == nil && activeQuery.caseInsensitiveCompare(query) == .orderedSame
     }
 
     private func addRecentSearch(_ term: String) {

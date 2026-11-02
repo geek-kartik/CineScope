@@ -4,12 +4,8 @@
 //
 
 import SwiftUI
-import SwiftData
 
 public struct MovieDetailsView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-
     @State private var viewModel: MovieDetailsViewModel
     @State private var isOverviewExpanded: Bool = false
 
@@ -19,15 +15,14 @@ public struct MovieDetailsView: View {
         movieId: Int,
         initialMovie: Movie? = nil,
         movieRepository: MovieRepositoryProtocol = MovieRepository.shared,
-        userMovieRepository: UserMovieRepositoryProtocol? = nil,
+        userMovieRepository: UserMovieRepositoryProtocol,
         onMovieSelected: @escaping (Movie) -> Void = { _ in }
     ) {
-        let repo = userMovieRepository ?? UserMovieRepository(context: PersistenceController.shared.container.mainContext)
         _viewModel = State(initialValue: MovieDetailsViewModel(
             movieId: movieId,
             initialMovie: initialMovie,
             movieRepository: movieRepository,
-            userMovieRepository: repo
+            userMovieRepository: userMovieRepository
         ))
         self.onMovieSelected = onMovieSelected
     }
@@ -161,7 +156,7 @@ public struct MovieDetailsView: View {
                             Button {
                                 onMovieSelected(movie)
                             } label: {
-                                MovieCardView(movie: movie)
+                                MovieCardView(movie: movie, width: 145, height: 215)
                             }
                             .buttonStyle(.plain)
                         }

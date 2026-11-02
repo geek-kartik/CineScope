@@ -202,6 +202,9 @@ public struct HomeView: View {
             .task {
                 await viewModel.loadFeed()
             }
+            .onAppear {
+                viewModel.refreshUserMovieState()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .apiConfigDidChange)) { _ in
                 Task {
                     await viewModel.loadFeed()

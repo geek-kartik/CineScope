@@ -99,6 +99,18 @@ public final class UserMovieRepository: UserMovieRepositoryProtocol {
         cleanupOrSave(item)
     }
 
+    public func updateUserReview(
+        movie: Movie,
+        detail: MovieDetail?,
+        rating: Double?,
+        review: String?
+    ) {
+        let item = getOrCreateItem(movie: movie, detail: detail)
+        item.userRating = rating
+        item.userReview = review
+        cleanupOrSave(item)
+    }
+
     public func removeItem(movieId: Int) {
         if let item = getItem(id: movieId) {
             context.delete(item)

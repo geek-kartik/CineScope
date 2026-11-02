@@ -12,8 +12,7 @@ public struct WatchlistView: View {
     public var onExploreTapped: (() -> Void)? = nil
 
     private let columns = [
-        GridItem(.flexible(), spacing: CineSpacing.m),
-        GridItem(.flexible(), spacing: CineSpacing.m)
+        GridItem(.adaptive(minimum: 140, maximum: 220), spacing: CineSpacing.m)
     ]
 
     public init(
@@ -108,11 +107,7 @@ public struct WatchlistView: View {
                     router.push(.movie(id: item.id, movie: item.toMovie()))
                 } label: {
                     VStack(alignment: .leading, spacing: CineSpacing.xs) {
-                        MovieCardView(
-                            movie: item.toMovie(),
-                            width: (UIScreen.main.bounds.width - 48) / 2,
-                            height: ((UIScreen.main.bounds.width - 48) / 2) * 1.5
-                        )
+                        MovieCardView(movie: item.toMovie())
 
                         if item.isWatched {
                             HStack(spacing: 4) {

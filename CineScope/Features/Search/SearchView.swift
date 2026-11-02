@@ -204,13 +204,20 @@ public struct SearchView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(CineColors.textPrimary)
 
-            Text("We couldn't find any movies matching \"\(viewModel.query)\". Try checking the spelling or searching for another title.")
+            Text(emptyResultsMessage)
                 .font(.system(size: 14))
                 .foregroundStyle(CineColors.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, CineSpacing.l)
         }
         .padding(.vertical, CineSpacing.xl)
+    }
+
+    private var emptyResultsMessage: String {
+        if let genre = viewModel.selectedGenre {
+            return "We couldn't find any movies in \(genre.name). Try another genre."
+        }
+        return "We couldn't find any movies matching \"\(viewModel.query)\". Try checking the spelling or searching for another title."
     }
 
     private var loadingSkeleton: some View {

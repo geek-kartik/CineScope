@@ -35,6 +35,7 @@ public final class HomeViewModel {
     public var showTrailerSheet: Bool = false
 
     public private(set) var loadingMoreSections: Set<HomeSection> = []
+    public private(set) var watchlistMovieIDs: Set<Int> = []
 
     private let movieRepository: MovieRepositoryProtocol
     private let userMovieRepository: UserMovieRepositoryProtocol
@@ -42,6 +43,7 @@ public final class HomeViewModel {
     private let prefetchThreshold: Int = 3
     private var currentPages: [HomeSection: Int] = [:]
     private var totalPagesBySection: [HomeSection: Int] = [:]
+    private var feedGeneration: Int = 0
 
     public init(
         movieRepository: MovieRepositoryProtocol = MovieRepository.shared,
@@ -56,16 +58,26 @@ public final class HomeViewModel {
     public func loadFeed() async {
         guard !isLoading else { return }
 
+        refreshUserMovieState()
+
         if !apiConfig.hasCredentials {
             isMissingCredentials = true
+            isLoading = false
+            isRefreshing = false
             return
         }
         isMissingCredentials = false
 
-        if trendingMovies.isEmpty {
-            isLoading = true
-        }
+        isLoading = true
         errorMessage = nil
+
+        feedGeneration += 1
+        let generation = feedGeneration
+
+        defer {
+            isLoading = false
+            isRefreshing = false
+        }
 
         do {
             async let trendingTask = movieRepository.getTrending(timeWindow: "day", page: 1)
@@ -78,11 +90,7 @@ public final class HomeViewModel {
                 trendingTask, nowPlayingTask, topRatedTask, popularTask, upcomingTask
             )
 
-            guard !Task.isCancelled else {
-                self.isLoading = false
-                self.isRefreshing = false
-                return
-            }
+            guard !Task.isCancelled, generation == feedGeneration else { return }
 
             self.trendingMovies = trending.results
             self.heroMovie = trending.results.first ?? popular.results.first
@@ -104,20 +112,17 @@ public final class HomeViewModel {
                 .popular: popular.totalPages,
                 .upcoming: upcoming.totalPages
             ]
-            self.isLoading = false
-            self.isRefreshing = false
+            // Any in-flight "load more" requests belong to the previous feed
+            // generation and should not append stale pages.
+            self.loadingMoreSections.removeAll()
         } catch let apiErr as APIError {
-            self.isLoading = false
-            self.isRefreshing = false
-            guard !Task.isCancelled, apiErr != .cancelled else { return }
+            guard !Task.isCancelled, apiErr != .cancelled, generation == feedGeneration else { return }
             if apiErr.isAuthError {
                 self.isMissingCredentials = true
             }
             self.errorMessage = apiErr.localizedDescription
         } catch {
-            self.isLoading = false
-            self.isRefreshing = false
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == feedGeneration else { return }
             self.errorMessage = error.localizedDescription
         }
     }
@@ -143,17 +148,18 @@ public final class HomeViewModel {
     }
 
     public func loadMore(section: HomeSection) async {
-        guard !loadingMoreSections.contains(section) else { return }
+        guard !isLoading, !loadingMoreSections.contains(section) else { return }
 
         let nextPage = (currentPages[section] ?? 1) + 1
         guard nextPage <= (totalPagesBySection[section] ?? 1) else { return }
 
+        let generation = feedGeneration
         loadingMoreSections.insert(section)
         defer { loadingMoreSections.remove(section) }
 
         do {
             let result = try await fetchPage(section: section, page: nextPage)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, generation == feedGeneration else { return }
 
             let existingIDs = Set(movies(for: section).map(\.id))
             let newMovies = result.results.filter { !existingIDs.contains($0.id) }
@@ -167,12 +173,21 @@ public final class HomeViewModel {
         }
     }
 
+    public func refreshUserMovieState() {
+        watchlistMovieIDs = Set(userMovieRepository.fetchWatchlist().map(\.id))
+    }
+
     public func isInWatchlist(movie: Movie) -> Bool {
-        userMovieRepository.status(for: movie.id).isInWatchlist
+        watchlistMovieIDs.contains(movie.id)
     }
 
     public func toggleWatchlist(for movie: Movie) {
-        userMovieRepository.toggleWatchlist(movie: movie, detail: nil)
+        let isNowInWatchlist = userMovieRepository.toggleWatchlist(movie: movie, detail: nil)
+        if isNowInWatchlist {
+            watchlistMovieIDs.insert(movie.id)
+        } else {
+            watchlistMovieIDs.remove(movie.id)
+        }
     }
 
     public func openHeroTrailer() async {

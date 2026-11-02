@@ -51,7 +51,9 @@ public struct MovieRowSection: View {
                         } label: {
                             MovieCardView(
                                 movie: movie,
-                                rank: showRank ? (index + 1) : nil
+                                rank: showRank ? (index + 1) : nil,
+                                width: 145,
+                                height: 215
                             )
                         }
                         .buttonStyle(.plain)

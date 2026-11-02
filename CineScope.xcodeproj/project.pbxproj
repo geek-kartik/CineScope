@@ -29,9 +29,22 @@
 		DC56DF0430779C1300B4A52F /* CineScopeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CineScopeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		DC56DF1730779C1300B4A52F /* Exceptions for "CineScope" folder in "CineScope" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = DC56DEEA30779C1000B4A52F /* CineScope */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		DC56DEED30779C1000B4A52F /* CineScope */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				DC56DF1730779C1300B4A52F /* Exceptions for "CineScope" folder in "CineScope" target */,
+			);
 			path = CineScope;
 			sourceTree = "<group>";
 		};

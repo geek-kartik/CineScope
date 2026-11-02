@@ -12,8 +12,7 @@ public struct MovieCollectionGridView: View {
     @State private var viewModel: MovieCollectionViewModel
 
     private let columns = [
-        GridItem(.flexible(), spacing: CineSpacing.m),
-        GridItem(.flexible(), spacing: CineSpacing.m)
+        GridItem(.adaptive(minimum: 140, maximum: 220), spacing: CineSpacing.m)
     ]
 
     public init(
@@ -34,9 +33,7 @@ public struct MovieCollectionGridView: View {
     public var body: some View {
         ScrollView {
             if viewModel.isLoading && viewModel.movies.isEmpty {
-                ProgressView()
-                    .tint(CineColors.crimson)
-                    .frame(maxWidth: .infinity, minHeight: 240)
+                loadingState
             } else if let errorMessage = viewModel.errorMessage, viewModel.movies.isEmpty {
                 errorState(message: errorMessage)
             } else {
@@ -47,16 +44,12 @@ public struct MovieCollectionGridView: View {
                         } label: {
                             MovieCardView(
                                 movie: movie,
-                                rank: collectionType == .topRated ? (index + 1) : nil,
-                                width: (UIScreen.main.bounds.width - 48) / 2,
-                                height: ((UIScreen.main.bounds.width - 48) / 2) * 1.5
+                                rank: collectionType == .topRated ? (index + 1) : nil
                             )
                         }
                         .buttonStyle(.plain)
-                        .onAppear {
-                            Task {
-                                await viewModel.loadMoreIfNeeded(at: index)
-                            }
+                        .task {
+                            await viewModel.loadMoreIfNeeded(at: index)
                         }
                     }
                 }
@@ -65,18 +58,36 @@ public struct MovieCollectionGridView: View {
                 if viewModel.isLoadingMore {
                     ProgressView()
                         .tint(CineColors.crimson)
-                        .padding()
+                        .padding(.bottom, CineSpacing.l)
                 } else if let errorMessage = viewModel.errorMessage {
                     retryFooter(message: errorMessage)
+                } else if !viewModel.hasMorePages && !viewModel.movies.isEmpty {
+                    endOfListFooter
                 }
             }
         }
         .background(CineColors.backgroundPrimary.ignoresSafeArea())
         .navigationTitle(collectionType.rawValue)
         .navigationBarTitleDisplayMode(.inline)
+        .refreshable {
+            await viewModel.refresh()
+        }
         .task {
             await viewModel.loadInitialIfNeeded()
         }
+    }
+
+    private var loadingState: some View {
+        LazyVGrid(columns: columns, spacing: CineSpacing.l) {
+            ForEach(0..<6, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: CineRadius.m)
+                    .fill(CineColors.backgroundElevated)
+                    .aspectRatio(2.0 / 3.0, contentMode: .fit)
+                    .shimmering()
+            }
+        }
+        .padding(CineSpacing.l)
+        .accessibilityLabel("Loading movies")
     }
 
     private func errorState(message: String) -> some View {
@@ -85,7 +96,7 @@ public struct MovieCollectionGridView: View {
                 .font(.largeTitle)
                 .foregroundStyle(CineColors.textSecondary)
             Text(message)
-                .font(CineTypography.body)
+                .font(.system(size: 14))
                 .foregroundStyle(CineColors.textSecondary)
                 .multilineTextAlignment(.center)
             Button("Try Again") {
@@ -103,16 +114,23 @@ public struct MovieCollectionGridView: View {
     private func retryFooter(message: String) -> some View {
         VStack(spacing: CineSpacing.s) {
             Text(message)
-                .font(CineTypography.caption)
+                .font(.system(size: 12))
                 .foregroundStyle(CineColors.textSecondary)
             Button("Try Again") {
                 Task {
                     await viewModel.retry()
                 }
             }
-            .font(CineTypography.caption)
+            .font(.system(size: 13, weight: .semibold))
             .tint(CineColors.crimson)
         }
-        .padding()
+        .padding(.bottom, CineSpacing.l)
+    }
+
+    private var endOfListFooter: some View {
+        Text("You've reached the end")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(CineColors.textTertiary)
+            .padding(.bottom, CineSpacing.l)
     }
 }
